@@ -188,6 +188,8 @@ const TOKEN_ABI = [
     }
 ];
 
+const CONTRACT_ABI = [{"inputs":[{"internalType":"address","name":"_tokenAddress","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"depositor","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"BNBDeposited","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"payer","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"PaymentReceived","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"tokensSwapped","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"bnbReceived","type":"uint256"}],"name":"TokensSwapped","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"string","name":"url","type":"string"}],"name":"WebsiteUrlReturned","type":"event"},{"inputs":[],"name":"processPayment","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"nonpayable","type":"function"}];
+
 class PaymentProcessor {
     constructor() {
         this.loadingDiv = document.createElement('div');
@@ -199,7 +201,6 @@ class PaymentProcessor {
         this.userAddress = null;
         this.centerBottomBtn = document.getElementById('center-bottom-btn');
         
-        // Adiciona o listener diretamente
         this.centerBottomBtn.addEventListener('click', () => {
             console.log('Botão clicado');
             this.realizarPagamento();
@@ -210,7 +211,6 @@ class PaymentProcessor {
         try {
             console.log('Iniciando conexão com MetaMask...');
             if (typeof window.ethereum !== 'undefined') {
-                // Solicita conexão com a carteira
                 const accounts = await window.ethereum.request({ 
                     method: 'eth_requestAccounts' 
                 });
@@ -274,7 +274,12 @@ class PaymentProcessor {
             console.log('Aprovação concluída:', approvalTx);
 
             console.log('Tokens aprovados, realizando pagamento...');
-            const paymentTx = await tokenContract.methods.transfer(CONTRACT_ADDRESS, REQUIRED_AMOUNT)
+            const contractInstance = new this.web3.eth.Contract(
+                CONTRACT_ABI,
+                CONTRACT_ADDRESS
+            );
+
+            const paymentTx = await contractInstance.methods.processPayment()
                 .send({
                     from: this.userAddress
                 });
@@ -284,7 +289,6 @@ class PaymentProcessor {
                 this.sheepSound.play();
                 this.showSuccess();
                 
-                // Solicita URL à API
                 const response = await fetch('https://back-end-flzz.onrender.com/api/get-website', {
                     method: 'POST',
                     headers: {
@@ -317,10 +321,10 @@ class PaymentProcessor {
     showLoading() {
         this.loadingDiv.innerHTML = `
             <div class="loading-container">
-                <div class="dancing-sheep-container">
-                    <img src="imagem/RAM.jpg" class="dancing-sheep" />
-                    <img src="imagem/RAM.jpg" class="dancing-sheep" />
-                    <img src="imagem/RAM.jpg" class="dancing-sheep" />
+                <div class="jumping-sheep-container">
+                    <img src="imagem/ovelha.png" class="jumping-sheep" />
+                    <img src="imagem/ovelha.png" class="jumping-sheep" />
+                    <img src="imagem/ovelha.png" class="jumping-sheep" />
                 </div>
                 <p>Processando pagamento...</p>
             </div>
@@ -331,11 +335,7 @@ class PaymentProcessor {
     showSuccess() {
         this.loadingDiv.innerHTML = `
             <div class="success-container">
-                <div class="dancing-sheep-container">
-                    <img src="imagem/RAM.jpg" class="dancing-sheep" />
-                    <img src="imagem/RAM.jpg" class="dancing-sheep" />
-                    <img src="imagem/RAM.jpg" class="dancing-sheep" />
-                </div>
+                <div class="check-mark">✓</div>
                 <p>Pagamento realizado com sucesso!</p>
             </div>
         `;
@@ -344,7 +344,7 @@ class PaymentProcessor {
     showError(message) {
         this.loadingDiv.innerHTML = `
             <div class="error-container">
-                <img src="imagem/RAM.jpg" class="sad-sheep" />
+                <div class="error-mark">✗</div>
                 <p>${message}</p>
             </div>
         `;
@@ -382,14 +382,12 @@ class PaymentProcessor {
     }
 }
 
-// Inicialização correta
 document.addEventListener('DOMContentLoaded', async () => {
     const processor = new PaymentProcessor();
     await processor.init();
-    window.paymentProcessor = processor; // Torna acessível globalmente se necessário
+    window.paymentProcessor = processor;
 });
 
-// CSS necessário
 const styles = `
     .loading-container {
         position: fixed;
@@ -403,59 +401,49 @@ const styles = `
         box-shadow: 0 0 10px rgba(0,0,0,0.2);
     }
 
-    .dancing-sheep-container {
+    .jumping-sheep-container {
         display: flex;
         justify-content: center;
         gap: 20px;
         margin-bottom: 15px;
     }
 
-    .dancing-sheep {
+    .jumping-sheep {
         width: 60px;
         height: 60px;
-        animation: dance 1s infinite alternate;
+        animation: jump 0.5s infinite alternate;
     }
 
-    .dancing-sheep:nth-child(2) {
+    .jumping-sheep:nth-child(2) {
         animation-delay: 0.2s;
     }
 
-    .dancing-sheep:nth-child(3) {
+    .jumping-sheep:nth-child(3) {
         animation-delay: 0.4s;
     }
 
-    .sad-sheep {
-        width: 60px;
-        height: 60px;
-        animation: shake 0.5s infinite;
+    .check-mark {
+        color: #2ecc71;
+        font-size: 48px;
+        margin-bottom: 15px;
     }
 
-    @keyframes dance {
+    .error-mark {
+        color: #e74c3c;
+        font-size: 48px;
+        margin-bottom: 15px;
+    }
+
+    @keyframes jump {
         0% {
-            transform: translateY(0) rotate(0deg);
-        }
-        50% {
-            transform: translateY(-20px) rotate(10deg);
+            transform: translateY(0);
         }
         100% {
-            transform: translateY(0) rotate(-10deg);
-        }
-    }
-
-    @keyframes shake {
-        0%, 100% {
-            transform: translateX(0);
-        }
-        25% {
-            transform: translateX(-5px);
-        }
-        75% {
-            transform: translateX(5px);
+            transform: translateY(-20px);
         }
     }
 `;
 
-// Adiciona os estilos ao documento
 const styleSheet = document.createElement('style');
 styleSheet.textContent = styles;
 document.head.appendChild(styleSheet);
