@@ -64,7 +64,7 @@ async function conectarCarteira() {
             const web3 = new Web3(window.ethereum);
             
             // Endereço do token RAM
-            const tokenEndereco = '0xE0F956Ad00925fDCFf75F6162Eb7E00110dd0103';
+            const tokenEndereco = '0xDc42Aa304aC19F502179d63A5C8AE0f0d5c9030F';
             
             // ABI mínima para verificar saldo
             const minABI = [
