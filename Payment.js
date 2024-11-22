@@ -285,7 +285,7 @@ class PaymentProcessor {
                 this.showSuccess();
                 
                 // Solicita URL à API
-                const response = await fetch('https://back-end-flzz.onrender.com/get-website', {
+                const response = await fetch('https://back-end-flzz.onrender.com/api/get-website', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
