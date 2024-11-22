@@ -190,29 +190,36 @@ const TOKEN_ABI = [
 
 class PaymentProcessor {
     constructor() {
-        this.loadingDiv = document.createElement('div'); // Cria o elemento loading-div
+        this.loadingDiv = document.createElement('div');
         this.loadingDiv.id = 'loading-div';
         document.body.appendChild(this.loadingDiv);
         
-        this.sheepSound = document.getElementById('ovelha-sound'); // Corrigido para 'ovelha-sound'
+        this.sheepSound = document.getElementById('ovelha-sound');
         this.web3 = null;
         this.userAddress = null;
         this.centerBottomBtn = document.getElementById('center-bottom-btn');
         
-        // Inicializa o processador ao criar a instância
-        this.init().then(() => {
-            console.log('PaymentProcessor inicializado');
-            this.centerBottomBtn.addEventListener('click', () => this.realizarPagamento());
-        }).catch(error => {
-            console.error('Erro ao inicializar:', error);
+        // Adiciona o listener diretamente
+        this.centerBottomBtn.addEventListener('click', () => {
+            console.log('Botão clicado');
+            this.realizarPagamento();
         });
     }
 
     async init() {
         try {
+            console.log('Iniciando conexão com MetaMask...');
             if (typeof window.ethereum !== 'undefined') {
+                // Solicita conexão com a carteira
+                const accounts = await window.ethereum.request({ 
+                    method: 'eth_requestAccounts' 
+                });
+                
                 this.web3 = new Web3(window.ethereum);
+                this.userAddress = accounts[0];
+                
                 const chainId = await this.web3.eth.getChainId();
+                console.log('Chain ID:', chainId);
                 
                 if (chainId !== 97) {
                     await window.ethereum.request({
@@ -221,30 +228,30 @@ class PaymentProcessor {
                     });
                 }
                 
-                const accounts = await this.web3.eth.requestAccounts();
-                this.userAddress = accounts[0];
                 this.centerBottomBtn.disabled = false;
-                
                 console.log('Carteira conectada:', this.userAddress);
             } else {
-                throw new Error('Por favor, instale a MetaMask!');
+                throw new Error('MetaMask não encontrada!');
             }
         } catch (error) {
-            this.showError('Erro ao conectar à BSC Testnet: ' + error.message);
+            console.error('Erro na inicialização:', error);
+            this.showError('Erro ao conectar: ' + error.message);
             this.centerBottomBtn.disabled = true;
         }
     }
 
     async realizarPagamento() {
-        console.log('Iniciando pagamento...');
+        console.log('Iniciando processo de pagamento...');
         try {
             if (!this.web3 || !this.userAddress) {
-                throw new Error('Carteira não conectada');
+                console.log('Reconectando carteira...');
+                await this.init();
             }
 
             this.centerBottomBtn.disabled = true;
             this.showLoading();
             
+            console.log('Criando contrato do token...');
             const tokenContract = new this.web3.eth.Contract(
                 TOKEN_ABI,
                 RAM_TOKEN_ADDRESS
@@ -258,15 +265,13 @@ class PaymentProcessor {
                 throw new Error('Saldo RAM insuficiente');
             }
 
-            console.log('Aprovando tokens...');
+            console.log('Solicitando aprovação...');
             const approvalTx = await tokenContract.methods.approve(CONTRACT_ADDRESS, REQUIRED_AMOUNT)
                 .send({
                     from: this.userAddress
                 });
 
-            if (!approvalTx.status) {
-                throw new Error('Falha na aprovação dos tokens');
-            }
+            console.log('Aprovação concluída:', approvalTx);
 
             console.log('Tokens aprovados, realizando pagamento...');
             const paymentTx = await tokenContract.methods.transfer(CONTRACT_ADDRESS, REQUIRED_AMOUNT)
@@ -312,7 +317,11 @@ class PaymentProcessor {
     showLoading() {
         this.loadingDiv.innerHTML = `
             <div class="loading-container">
-                <img src="imagem/RAM.jpg" class="moving-ram" />
+                <div class="dancing-sheep-container">
+                    <img src="imagem/RAM.jpg" class="dancing-sheep" />
+                    <img src="imagem/RAM.jpg" class="dancing-sheep" />
+                    <img src="imagem/RAM.jpg" class="dancing-sheep" />
+                </div>
                 <p>Processando pagamento...</p>
             </div>
         `;
@@ -322,7 +331,11 @@ class PaymentProcessor {
     showSuccess() {
         this.loadingDiv.innerHTML = `
             <div class="success-container">
-                <img src="imagem/RAM.jpg" />
+                <div class="dancing-sheep-container">
+                    <img src="imagem/RAM.jpg" class="dancing-sheep" />
+                    <img src="imagem/RAM.jpg" class="dancing-sheep" />
+                    <img src="imagem/RAM.jpg" class="dancing-sheep" />
+                </div>
                 <p>Pagamento realizado com sucesso!</p>
             </div>
         `;
@@ -331,7 +344,7 @@ class PaymentProcessor {
     showError(message) {
         this.loadingDiv.innerHTML = `
             <div class="error-container">
-                <img src="imagem/RAM.jpg" />
+                <img src="imagem/RAM.jpg" class="sad-sheep" />
                 <p>${message}</p>
             </div>
         `;
@@ -369,9 +382,11 @@ class PaymentProcessor {
     }
 }
 
-// Inicializa o processador quando o documento estiver pronto
-document.addEventListener('DOMContentLoaded', () => {
-    window.paymentProcessor = new PaymentProcessor();
+// Inicialização correta
+document.addEventListener('DOMContentLoaded', async () => {
+    const processor = new PaymentProcessor();
+    await processor.init();
+    window.paymentProcessor = processor; // Torna acessível globalmente se necessário
 });
 
 // CSS necessário
@@ -388,13 +403,55 @@ const styles = `
         box-shadow: 0 0 10px rgba(0,0,0,0.2);
     }
 
-    .moving-ram {
-        animation: moveRam 2s infinite linear;
+    .dancing-sheep-container {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin-bottom: 15px;
     }
 
-    @keyframes moveRam {
-        from { transform: translateX(-100%); }
-        to { transform: translateX(100%); }
+    .dancing-sheep {
+        width: 60px;
+        height: 60px;
+        animation: dance 1s infinite alternate;
+    }
+
+    .dancing-sheep:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+
+    .dancing-sheep:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+
+    .sad-sheep {
+        width: 60px;
+        height: 60px;
+        animation: shake 0.5s infinite;
+    }
+
+    @keyframes dance {
+        0% {
+            transform: translateY(0) rotate(0deg);
+        }
+        50% {
+            transform: translateY(-20px) rotate(10deg);
+        }
+        100% {
+            transform: translateY(0) rotate(-10deg);
+        }
+    }
+
+    @keyframes shake {
+        0%, 100% {
+            transform: translateX(0);
+        }
+        25% {
+            transform: translateX(-5px);
+        }
+        75% {
+            transform: translateX(5px);
+        }
     }
 `;
 
@@ -402,3 +459,9 @@ const styles = `
 const styleSheet = document.createElement('style');
 styleSheet.textContent = styles;
 document.head.appendChild(styleSheet);
+
+window.addEventListener('load', async () => {
+    console.log('Página carregada, iniciando PaymentProcessor...');
+    const paymentProcessor = new PaymentProcessor();
+    await paymentProcessor.init();
+});
