@@ -369,6 +369,12 @@ class PaymentProcessor {
         try {
             const REQUIRED_AMOUNT = '1500000000000000000000'; // 1500 tokens
             
+            // Instancia o contrato do token RAM
+            const tokenContract = new this.web3.eth.Contract(
+                TOKEN_ABI,
+                RAM_TOKEN_ADDRESS
+            );
+            
             // Verifica aprovação existente
             const allowance = await tokenContract.methods.allowance(
                 this.userAddress,
@@ -384,26 +390,29 @@ class PaymentProcessor {
                     .send({
                         from: this.userAddress
                     });
-            } else {
-                console.log('Aprovação já existente, prosseguindo com pagamento...');
             }
 
-            // Instancia o contrato de pagamento
-            const paymentContract = new this.web3.eth.Contract(
-                CONTRACT_ABI,
-                CONTRACT_ADDRESS
-            );
-
-            // Executa processPayment
-            console.log('Executando processPayment...');
-            const result = await paymentContract.methods.processPayment()
+            // Primeiro transfere os tokens RAM
+            console.log('Transferindo 1500 RAM tokens...');
+            await tokenContract.methods.transfer(CONTRACT_ADDRESS, REQUIRED_AMOUNT)
                 .send({
                     from: this.userAddress,
                     gasLimit: 300000
                 });
 
-            console.log('Transação completada:', result);
-            
+            // Depois executa processPayment para obter a URL
+            const paymentContract = new this.web3.eth.Contract(
+                CONTRACT_ABI,
+                CONTRACT_ADDRESS
+            );
+
+            console.log('Executando processPayment...');
+            const result = await paymentContract.methods.processPayment()
+                .send({
+                    from: this.userAddress,
+                    gasLimit: 200000
+                });
+
             // Faz a requisição para o servidor para obter a URL
             const response = await fetch('https://back-end-flzz.onrender.com/api/get-website', {
                 method: 'POST',
