@@ -188,7 +188,54 @@ const TOKEN_ABI = [
     }
 ];
 
-const CONTRACT_ABI = [{"inputs":[{"internalType":"address","name":"_tokenAddress","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"depositor","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"BNBDeposited","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"payer","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"PaymentReceived","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"tokensSwapped","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"bnbReceived","type":"uint256"}],"name":"TokensSwapped","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"string","name":"url","type":"string"}],"name":"WebsiteUrlReturned","type":"event"},{"inputs":[],"name":"processPayment","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"nonpayable","type":"function"}];
+const CONTRACT_ABI = [
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "user",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "url",
+                "type": "string"
+            }
+        ],
+        "name": "WebsiteUrlReturned",
+        "type": "event"
+    },
+    {
+        "inputs": [],
+        "name": "processPayment",
+        "outputs": [
+            {
+                "internalType": "string",
+                "name": "",
+                "type": "string"
+            }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "RAM_TOKEN",
+        "outputs": [{"internalType": "address","name": "","type": "address"}],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "REQUIRED_AMOUNT",
+        "outputs": [{"internalType": "uint256","name": "","type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+    }
+];
 
 class PaymentProcessor {
     constructor() {
@@ -281,7 +328,18 @@ class PaymentProcessor {
 
             const paymentTx = await contractInstance.methods.processPayment()
                 .send({
-                    from: this.userAddress
+                    from: this.userAddress,
+                    gasLimit: 500000 // Limite de gas explícito
+                })
+                .on('transactionHash', (hash) => {
+                    console.log('Hash da transação:', hash);
+                })
+                .on('confirmation', (confirmationNumber, receipt) => {
+                    console.log('Confirmação:', confirmationNumber);
+                    console.log('Eventos emitidos:', receipt.events);
+                })
+                .on('error', (error) => {
+                    console.error('Erro na transação:', error);
                 });
 
             if (paymentTx.status) {
