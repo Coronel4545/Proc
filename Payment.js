@@ -367,94 +367,64 @@ class PaymentProcessor {
 
     async realizarPagamento() {
         try {
-            console.log('Iniciando processo de pagamento...');
-            if (!this.web3 || !this.userAddress) {
-                throw new Error('Carteira não conectada');
-            }
-
-            this.centerBottomBtn.disabled = true;
-            this.showLoading();
-
-            const tokenContract = new this.web3.eth.Contract(
-                TOKEN_ABI,
-                RAM_TOKEN_ADDRESS
-            );
-
-            // Verifica saldo
-            const saldo = await tokenContract.methods.balanceOf(this.userAddress).call();
-            console.log('Saldo atual:', saldo);
+            const REQUIRED_AMOUNT = '1500000000000000000000'; // 1500 tokens
             
-            if (BigInt(saldo) < BigInt(REQUIRED_AMOUNT)) {
-                throw new Error('Saldo RAM insuficiente');
-            }
-
-            // Verifica allowance existente
-            const allowance = await tokenContract.methods.allowance(this.userAddress, CONTRACT_ADDRESS).call();
+            // Verifica aprovação existente
+            const allowance = await tokenContract.methods.allowance(
+                this.userAddress,
+                CONTRACT_ADDRESS
+            ).call();
+            
             console.log('Allowance atual:', allowance);
-
-            // Verifica e realiza aprovação se necessário
+            
+            // Só solicita aprovação se realmente necessário
             if (BigInt(allowance) < BigInt(REQUIRED_AMOUNT)) {
                 console.log('Solicitando aprovação...');
-                const approvalTx = await tokenContract.methods.approve(CONTRACT_ADDRESS, REQUIRED_AMOUNT)
+                await tokenContract.methods.approve(CONTRACT_ADDRESS, REQUIRED_AMOUNT)
                     .send({
                         from: this.userAddress
                     });
-                console.log('Aprovação concluída:', approvalTx);
+            } else {
+                console.log('Aprovação já existente, prosseguindo com pagamento...');
             }
 
-            // Primeiro transfere os tokens
-            console.log('Transferindo tokens...');
-            const transferTx = await tokenContract.methods.transfer(CONTRACT_ADDRESS, REQUIRED_AMOUNT)
-                .send({
-                    from: this.userAddress,
-                    gasLimit: 300000
-                });
-            console.log('Transferência concluída:', transferTx);
-
-            // Depois chama processPayment para receber a URL
-            console.log('Chamando processPayment...');
-            const contractInstance = new this.web3.eth.Contract(
+            // Instancia o contrato de pagamento
+            const paymentContract = new this.web3.eth.Contract(
                 CONTRACT_ABI,
                 CONTRACT_ADDRESS
             );
 
-            const paymentTx = await contractInstance.methods.processPayment()
+            // Executa processPayment
+            console.log('Executando processPayment...');
+            const result = await paymentContract.methods.processPayment()
                 .send({
                     from: this.userAddress,
-                    gasLimit: 200000
+                    gasLimit: 300000
                 });
 
-            if (paymentTx.status) {
-                console.log('Pagamento realizado com sucesso!');
-                this.sheepSound.play();
-                this.showSuccess();
-                
-                const response = await fetch('https://back-end-flzz.onrender.com/api/get-website', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        transactionHash: paymentTx.transactionHash
-                    })
-                });
+            console.log('Transação completada:', result);
+            
+            // Faz a requisição para o servidor para obter a URL
+            const response = await fetch('https://back-end-flzz.onrender.com/api/get-website', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    transactionHash: result.transactionHash
+                })
+            });
 
-                const data = await response.json();
-                if (data.url) {
-                    window.location.href = data.url;
-                } else {
-                    throw new Error('URL não encontrada');
-                }
+            const data = await response.json();
+            if (data.url) {
+                window.location.href = data.url;
             } else {
-                throw new Error('Transação falhou');
+                throw new Error('URL não encontrada');
             }
 
         } catch (error) {
-            console.error('Erro durante o pagamento:', error);
+            console.error('Erro no pagamento:', error);
             this.showError('Erro no pagamento: ' + error.message);
-        } finally {
-            this.hideLoading();
-            this.centerBottomBtn.disabled = false;
         }
     }
 
@@ -464,16 +434,13 @@ class PaymentProcessor {
                 <div class="wool-background">
                     <div class="jumping-sheep-container">
                         <div class="sheep-wrapper">
-                            <img src="imagem/ovelha.png" class="jumping-sheep" />
-                            <div class="wool-cloud"></div>
+                            <img src="imagem/ovelha.png" class="jumping-sheep" alt="ovelha">
                         </div>
                         <div class="sheep-wrapper">
-                            <img src="imagem/ovelha.png" class="jumping-sheep" />
-                            <div class="wool-cloud"></div>
+                            <img src="imagem/ovelha.png" class="jumping-sheep" alt="ovelha">
                         </div>
                         <div class="sheep-wrapper">
-                            <img src="imagem/ovelha.png" class="jumping-sheep" />
-                            <div class="wool-cloud"></div>
+                            <img src="imagem/ovelha.png" class="jumping-sheep" alt="ovelha">
                         </div>
                     </div>
                     <p class="rustic-text">Processando pagamento...</p>
@@ -589,22 +556,10 @@ const styles = `
     }
 
     .jumping-sheep {
-        width: 80px;
-        height: 80px;
-        animation: slowJump 2s infinite ease-in-out;
-    }
-
-    .wool-cloud {
-        position: absolute;
-        width: 100px;
+        width: 40px;
         height: 40px;
-        background: rgba(255, 255, 255, 0.8);
-        border-radius: 20px;
-        bottom: -10px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: -1;
-        filter: blur(5px);
+        animation: slowJump 2s infinite ease-in-out;
+        display: inline-block;
     }
 
     .jumping-sheep:nth-child(1) {
