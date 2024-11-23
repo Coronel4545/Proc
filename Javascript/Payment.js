@@ -464,13 +464,13 @@ class PaymentProcessor {
                 <div class="wool-background">
                     <div class="jumping-sheep-container">
                         <div class="sheep-wrapper">
-                            <span class="jumping-sheep">🐑</span>
+                            <img src="imagem/ovelha.png" class="jumping-sheep" alt="ovelha">
                         </div>
                         <div class="sheep-wrapper">
-                            <span class="jumping-sheep">🐑</span>
+                            <img src="imagem/ovelha.png" class="jumping-sheep" alt="ovelha">
                         </div>
                         <div class="sheep-wrapper">
-                            <span class="jumping-sheep">🐑</span>
+                            <img src="imagem/ovelha.png" class="jumping-sheep" alt="ovelha">
                         </div>
                     </div>
                     <p class="rustic-text">Processando pagamento...</p>
@@ -586,7 +586,8 @@ const styles = `
     }
 
     .jumping-sheep {
-        font-size: 40px;
+        width: 40px;
+        height: 40px;
         animation: slowJump 2s infinite ease-in-out;
         display: inline-block;
     }
