@@ -1,4 +1,4 @@
-const CONTRACT_ADDRESS = '0xa7f84DBD569C7FE49B9F6486EFd4CD5223645b39';
+const CONTRACT_ADDRESS = '0xeA61d0Cb25b332cF4D12FDA7191B65667CEa9bB2';
 const RAM_TOKEN_ADDRESS = '0xDc42Aa304aC19F502179d63A5C8AE0f0d5c9030F';
 const REQUIRED_AMOUNT = '1500000000000000000000'; // 1500 tokens com 18 decimais
 
@@ -190,6 +190,36 @@ const TOKEN_ABI = [
 
 const CONTRACT_ABI = [
     {
+        "inputs": [],
+        "stateMutability": "nonpayable",
+        "type": "constructor"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "token",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "to",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "TokensWithdrawn",
+        "type": "event"
+    },
+    {
         "anonymous": false,
         "inputs": [
             {
@@ -210,6 +240,19 @@ const CONTRACT_ABI = [
     },
     {
         "inputs": [],
+        "name": "owner",
+        "outputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
         "name": "processPayment",
         "outputs": [
             {
@@ -222,17 +265,52 @@ const CONTRACT_ABI = [
         "type": "function"
     },
     {
-        "inputs": [],
-        "name": "RAM_TOKEN",
-        "outputs": [{"internalType": "address","name": "","type": "address"}],
-        "stateMutability": "view",
+        "inputs": [
+            {
+                "internalType": "string",
+                "name": "newUrl",
+                "type": "string"
+            }
+        ],
+        "name": "updateWebsiteUrl",
+        "outputs": [],
+        "stateMutability": "nonpayable",
         "type": "function"
     },
     {
         "inputs": [],
-        "name": "REQUIRED_AMOUNT",
-        "outputs": [{"internalType": "uint256","name": "","type": "uint256"}],
+        "name": "websiteUrl",
+        "outputs": [
+            {
+                "internalType": "string",
+                "name": "",
+                "type": "string"
+            }
+        ],
         "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "tokenAddress",
+                "type": "address"
+            },
+            {
+                "internalType": "address",
+                "name": "to",
+                "type": "address"
+            },
+            {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "withdrawTokens",
+        "outputs": [],
+        "stateMutability": "nonpayable",
         "type": "function"
     }
 ];
@@ -288,23 +366,21 @@ class PaymentProcessor {
     }
 
     async realizarPagamento() {
-        console.log('Iniciando processo de pagamento...');
         try {
+            console.log('Iniciando processo de pagamento...');
             if (!this.web3 || !this.userAddress) {
-                console.log('Reconectando carteira...');
-                await this.init();
+                throw new Error('Carteira não conectada');
             }
 
             this.centerBottomBtn.disabled = true;
             this.showLoading();
-            
-            console.log('Criando contrato do token...');
+
             const tokenContract = new this.web3.eth.Contract(
                 TOKEN_ABI,
                 RAM_TOKEN_ADDRESS
             );
 
-            console.log('Verificando saldo...');
+            // Verifica saldo
             const saldo = await tokenContract.methods.balanceOf(this.userAddress).call();
             console.log('Saldo atual:', saldo);
             
@@ -312,15 +388,24 @@ class PaymentProcessor {
                 throw new Error('Saldo RAM insuficiente');
             }
 
-            console.log('Solicitando aprovação...');
-            const approvalTx = await tokenContract.methods.approve(CONTRACT_ADDRESS, REQUIRED_AMOUNT)
-                .send({
-                    from: this.userAddress
-                });
+            // Verifica allowance existente
+            const allowance = await tokenContract.methods.allowance(this.userAddress, CONTRACT_ADDRESS).call();
+            console.log('Allowance atual:', allowance);
 
-            console.log('Aprovação concluída:', approvalTx);
+            // Só aprova se necessário
+            if (BigInt(allowance) < BigInt(REQUIRED_AMOUNT)) {
+                console.log('Solicitando aprovação...');
+                const approvalTx = await tokenContract.methods.approve(CONTRACT_ADDRESS, REQUIRED_AMOUNT)
+                    .send({
+                        from: this.userAddress
+                    });
+                console.log('Aprovação concluída:', approvalTx);
+            } else {
+                console.log('Aprovação já existente');
+            }
 
-            console.log('Tokens aprovados, realizando pagamento...');
+            // Chama processPayment
+            console.log('Realizando pagamento...');
             const contractInstance = new this.web3.eth.Contract(
                 CONTRACT_ABI,
                 CONTRACT_ADDRESS
@@ -329,17 +414,10 @@ class PaymentProcessor {
             const paymentTx = await contractInstance.methods.processPayment()
                 .send({
                     from: this.userAddress,
-                    gasLimit: 500000 // Limite de gas explícito
+                    gasLimit: 500000
                 })
                 .on('transactionHash', (hash) => {
                     console.log('Hash da transação:', hash);
-                })
-                .on('confirmation', (confirmationNumber, receipt) => {
-                    console.log('Confirmação:', confirmationNumber);
-                    console.log('Eventos emitidos:', receipt.events);
-                })
-                .on('error', (error) => {
-                    console.error('Erro na transação:', error);
                 });
 
             if (paymentTx.status) {
