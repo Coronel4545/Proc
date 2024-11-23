@@ -461,12 +461,23 @@ class PaymentProcessor {
     showLoading() {
         this.loadingDiv.innerHTML = `
             <div class="loading-container">
-                <div class="jumping-sheep-container">
-                    <img src="imagem/ovelha.png" class="jumping-sheep" />
-                    <img src="imagem/ovelha.png" class="jumping-sheep" />
-                    <img src="imagem/ovelha.png" class="jumping-sheep" />
+                <div class="wool-background">
+                    <div class="jumping-sheep-container">
+                        <div class="sheep-wrapper">
+                            <img src="imagem/ovelha.png" class="jumping-sheep" />
+                            <div class="wool-cloud"></div>
+                        </div>
+                        <div class="sheep-wrapper">
+                            <img src="imagem/ovelha.png" class="jumping-sheep" />
+                            <div class="wool-cloud"></div>
+                        </div>
+                        <div class="sheep-wrapper">
+                            <img src="imagem/ovelha.png" class="jumping-sheep" />
+                            <div class="wool-cloud"></div>
+                        </div>
+                    </div>
+                    <p class="rustic-text">Processando pagamento...</p>
                 </div>
-                <p>Processando pagamento...</p>
             </div>
         `;
         this.loadingDiv.style.display = 'block';
@@ -475,8 +486,10 @@ class PaymentProcessor {
     showSuccess() {
         this.loadingDiv.innerHTML = `
             <div class="success-container">
-                <div class="check-mark">✓</div>
-                <p>Pagamento realizado com sucesso!</p>
+                <div class="wool-background">
+                    <div class="check-mark">✓</div>
+                    <p class="rustic-text">Pagamento realizado com sucesso!</p>
+                </div>
             </div>
         `;
     }
@@ -484,8 +497,10 @@ class PaymentProcessor {
     showError(message) {
         this.loadingDiv.innerHTML = `
             <div class="error-container">
-                <div class="error-mark">✗</div>
-                <p>${message}</p>
+                <div class="wool-background">
+                    <div class="error-mark">✗</div>
+                    <p class="rustic-text">${message}</p>
+                </div>
             </div>
         `;
     }
@@ -534,51 +549,104 @@ const styles = `
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background: rgba(255, 255, 255, 0.9);
-        padding: 20px;
-        border-radius: 10px;
+        padding: 30px;
+        border-radius: 15px;
         text-align: center;
-        box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        background: #f4d03f;
+        border: 8px solid #8b4513;
+        box-shadow: 0 0 20px rgba(139, 69, 19, 0.4);
+    }
+
+    .wool-background {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 10px;
+        padding: 20px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .wool-background::before {
+        content: '';
+        position: absolute;
+        top: -10px;
+        left: -10px;
+        right: -10px;
+        bottom: -10px;
+        background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="white" opacity="0.5"/></svg>') repeat;
+        z-index: -1;
+        opacity: 0.3;
     }
 
     .jumping-sheep-container {
         display: flex;
         justify-content: center;
-        gap: 20px;
-        margin-bottom: 15px;
+        gap: 30px;
+        margin-bottom: 20px;
+    }
+
+    .sheep-wrapper {
+        position: relative;
     }
 
     .jumping-sheep {
-        width: 60px;
-        height: 60px;
-        animation: jump 0.5s infinite alternate;
+        width: 80px;
+        height: 80px;
+        animation: slowJump 2s infinite ease-in-out;
+    }
+
+    .wool-cloud {
+        position: absolute;
+        width: 100px;
+        height: 40px;
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 20px;
+        bottom: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: -1;
+        filter: blur(5px);
+    }
+
+    .jumping-sheep:nth-child(1) {
+        animation-delay: 0s;
     }
 
     .jumping-sheep:nth-child(2) {
-        animation-delay: 0.2s;
+        animation-delay: 0.6s;
     }
 
     .jumping-sheep:nth-child(3) {
-        animation-delay: 0.4s;
+        animation-delay: 1.2s;
+    }
+
+    .rustic-text {
+        font-family: 'Helvetica Neue', sans-serif;
+        color: #8b4513;
+        font-size: 1.2em;
+        font-weight: bold;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+        margin-top: 15px;
     }
 
     .check-mark {
         color: #2ecc71;
         font-size: 48px;
         margin-bottom: 15px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
     }
 
     .error-mark {
         color: #e74c3c;
         font-size: 48px;
         margin-bottom: 15px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
     }
 
-    @keyframes jump {
-        0% {
+    @keyframes slowJump {
+        0%, 100% {
             transform: translateY(0);
         }
-        100% {
+        50% {
             transform: translateY(-20px);
         }
     }
