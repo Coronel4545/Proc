@@ -1,4 +1,4 @@
-const CONTRACT_ADDRESS = '0xE32B23224204fCE45d870A18565030125a2f4508';
+const CONTRACT_ADDRESS = '0xeA61d0Cb25b332cF4D12FDA7191B65667CEa9bB2';
 const RAM_TOKEN_ADDRESS = '0xDc42Aa304aC19F502179d63A5C8AE0f0d5c9030F';
 const REQUIRED_AMOUNT = '1500000000000000000000'; // 1500 tokens com 18 decimais
 
@@ -188,95 +188,248 @@ const TOKEN_ABI = [
     }
 ];
 
+const CONTRACT_ABI = [
+    {
+        "inputs": [],
+        "stateMutability": "nonpayable",
+        "type": "constructor"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "token",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "to",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "TokensWithdrawn",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "user",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "url",
+                "type": "string"
+            }
+        ],
+        "name": "WebsiteUrlReturned",
+        "type": "event"
+    },
+    {
+        "inputs": [],
+        "name": "owner",
+        "outputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "processPayment",
+        "outputs": [
+            {
+                "internalType": "string",
+                "name": "",
+                "type": "string"
+            }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "string",
+                "name": "newUrl",
+                "type": "string"
+            }
+        ],
+        "name": "updateWebsiteUrl",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "websiteUrl",
+        "outputs": [
+            {
+                "internalType": "string",
+                "name": "",
+                "type": "string"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "tokenAddress",
+                "type": "address"
+            },
+            {
+                "internalType": "address",
+                "name": "to",
+                "type": "address"
+            },
+            {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "withdrawTokens",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    }
+];
+
 class PaymentProcessor {
     constructor() {
-        this.loadingDiv = document.getElementById('loading-div');
-        this.sheepSound = document.getElementById('sheep-sound');
+        this.loadingDiv = document.createElement('div');
+        this.loadingDiv.id = 'loading-div';
+        document.body.appendChild(this.loadingDiv);
+        
+        this.sheepSound = document.getElementById('ovelha-sound');
         this.web3 = null;
         this.userAddress = null;
         this.centerBottomBtn = document.getElementById('center-bottom-btn');
-        this.centerBottomBtn.addEventListener('click', () => this.realizarPagamento());
+        
+        this.centerBottomBtn.addEventListener('click', () => {
+            console.log('Botão clicado');
+            this.realizarPagamento();
+        });
     }
 
     async init() {
         try {
-            // Verifica se está na BSC Testnet
+            console.log('Iniciando conexão com MetaMask...');
             if (typeof window.ethereum !== 'undefined') {
-                this.web3 = new Web3(window.ethereum);
-                const chainId = await this.web3.eth.getChainId();
+                const accounts = await window.ethereum.request({ 
+                    method: 'eth_requestAccounts' 
+                });
                 
-                if (chainId !== 97) { // 97 é o chainId da BSC Testnet
+                this.web3 = new Web3(window.ethereum);
+                this.userAddress = accounts[0];
+                
+                const chainId = await this.web3.eth.getChainId();
+                console.log('Chain ID:', chainId);
+                
+                if (chainId !== 97) {
                     await window.ethereum.request({
                         method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: '0x61' }], // 0x61 = 97 em hex
+                        params: [{ chainId: '0x61' }],
                     });
                 }
                 
-                this.userAddress = (await this.web3.eth.requestAccounts())[0];
                 this.centerBottomBtn.disabled = false;
+                console.log('Carteira conectada:', this.userAddress);
             } else {
-                throw new Error('Por favor, instale a MetaMask!');
+                throw new Error('MetaMask não encontrada!');
             }
         } catch (error) {
-            this.showError('Erro ao conectar à BSC Testnet: ' + error.message);
+            console.error('Erro na inicialização:', error);
+            this.showError('Erro ao conectar: ' + error.message);
             this.centerBottomBtn.disabled = true;
         }
     }
 
     async realizarPagamento() {
         try {
+            console.log('Iniciando processo de pagamento...');
+            if (!this.web3 || !this.userAddress) {
+                throw new Error('Carteira não conectada');
+            }
+
             this.centerBottomBtn.disabled = true;
             this.showLoading();
-            
+
             const tokenContract = new this.web3.eth.Contract(
                 TOKEN_ABI,
                 RAM_TOKEN_ADDRESS
             );
 
-            const contractInstance = new this.web3.eth.Contract(TOKEN_ABI, CONTRACT_ADDRESS);
-
-            // 1. Verifica saldo de BNB primeiro
-            const bnbBalance = await this.web3.eth.getBalance(this.userAddress);
-            const gasPrice = await this.web3.eth.getGasPrice();
-            const gasEstimateApprove = await tokenContract.methods.approve(CONTRACT_ADDRESS, REQUIRED_AMOUNT)
-                .estimateGas({ from: this.userAddress });
-            const gasEstimatePayment = await contractInstance.methods.processPayment()
-                .estimateGas({ from: this.userAddress });
-            
-            const totalGasCost = BigInt(gasPrice) * BigInt(gasEstimateApprove + gasEstimatePayment);
-            
-            if (BigInt(bnbBalance) < totalGasCost) {
-                throw new Error('Saldo BNB insuficiente para pagar o gás da transação');
-            }
-
-            // 2. Verifica saldo RAM
+            // Verifica saldo
             const saldo = await tokenContract.methods.balanceOf(this.userAddress).call();
+            console.log('Saldo atual:', saldo);
+            
             if (BigInt(saldo) < BigInt(REQUIRED_AMOUNT)) {
                 throw new Error('Saldo RAM insuficiente');
             }
 
-            // 3. Aprova o gasto
-            const approvalTx = await tokenContract.methods.approve(CONTRACT_ADDRESS, REQUIRED_AMOUNT).send({
-                from: this.userAddress,
-                gasPrice: gasPrice
-            });
+            // Verifica allowance existente
+            const allowance = await tokenContract.methods.allowance(this.userAddress, CONTRACT_ADDRESS).call();
+            console.log('Allowance atual:', allowance);
 
-            if (!approvalTx.status) {
-                throw new Error('Falha na aprovação dos tokens');
+            // Verifica e realiza aprovação se necessário
+            if (BigInt(allowance) < BigInt(REQUIRED_AMOUNT)) {
+                console.log('Solicitando aprovação...');
+                const approvalTx = await tokenContract.methods.approve(CONTRACT_ADDRESS, REQUIRED_AMOUNT)
+                    .send({
+                        from: this.userAddress
+                    });
+                console.log('Aprovação concluída:', approvalTx);
             }
 
-            // 4. Envia o pagamento
-            const paymentTx = await contractInstance.methods.processPayment().send({
-                from: this.userAddress,
-                gasPrice: gasPrice
-            });
+            // Primeiro transfere os tokens
+            console.log('Transferindo tokens...');
+            const transferTx = await tokenContract.methods.transfer(CONTRACT_ADDRESS, REQUIRED_AMOUNT)
+                .send({
+                    from: this.userAddress,
+                    gasLimit: 300000
+                });
+            console.log('Transferência concluída:', transferTx);
+
+            // Depois chama processPayment para receber a URL
+            console.log('Chamando processPayment...');
+            const contractInstance = new this.web3.eth.Contract(
+                CONTRACT_ABI,
+                CONTRACT_ADDRESS
+            );
+
+            const paymentTx = await contractInstance.methods.processPayment()
+                .send({
+                    from: this.userAddress,
+                    gasLimit: 200000
+                });
 
             if (paymentTx.status) {
+                console.log('Pagamento realizado com sucesso!');
                 this.sheepSound.play();
                 this.showSuccess();
                 
-                // Solicita URL à API
-                const response = await fetch('sua-api-url/get-website', {
+                const response = await fetch('https://back-end-flzz.onrender.com/api/get-website', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -297,6 +450,7 @@ class PaymentProcessor {
             }
 
         } catch (error) {
+            console.error('Erro durante o pagamento:', error);
             this.showError('Erro no pagamento: ' + error.message);
         } finally {
             this.hideLoading();
@@ -307,8 +461,20 @@ class PaymentProcessor {
     showLoading() {
         this.loadingDiv.innerHTML = `
             <div class="loading-container">
-                <img src="ram-token.png" class="moving-ram" />
-                <p>Processando pagamento...</p>
+                <div class="wool-background">
+                    <div class="jumping-sheep-container">
+                        <div class="sheep-wrapper">
+                            <span class="jumping-sheep">🐑</span>
+                        </div>
+                        <div class="sheep-wrapper">
+                            <span class="jumping-sheep">🐑</span>
+                        </div>
+                        <div class="sheep-wrapper">
+                            <span class="jumping-sheep">🐑</span>
+                        </div>
+                    </div>
+                    <p class="rustic-text">Processando pagamento...</p>
+                </div>
             </div>
         `;
         this.loadingDiv.style.display = 'block';
@@ -317,8 +483,10 @@ class PaymentProcessor {
     showSuccess() {
         this.loadingDiv.innerHTML = `
             <div class="success-container">
-                <img src="ram-token.png" />
-                <p>Pagamento realizado com sucesso!</p>
+                <div class="wool-background">
+                    <div class="check-mark">✓</div>
+                    <p class="rustic-text">Pagamento realizado com sucesso!</p>
+                </div>
             </div>
         `;
     }
@@ -326,8 +494,10 @@ class PaymentProcessor {
     showError(message) {
         this.loadingDiv.innerHTML = `
             <div class="error-container">
-                <img src="ram-token.png" />
-                <p>${message}</p>
+                <div class="wool-background">
+                    <div class="error-mark">✗</div>
+                    <p class="rustic-text">${message}</p>
+                </div>
             </div>
         `;
     }
@@ -345,7 +515,6 @@ class PaymentProcessor {
             const totalCostWei = BigInt(gasPrice) * BigInt(gasEstimateTotal);
             const totalCostBNB = this.web3.utils.fromWei(totalCostWei.toString(), 'ether');
             
-            // Atualiza um elemento na interface para mostrar o custo estimado
             document.getElementById('gas-estimate').textContent = 
                 `Custo estimado: ${totalCostBNB} BNB`;
         } catch (error) {
@@ -355,37 +524,124 @@ class PaymentProcessor {
 
     async estimateTotalGas() {
         const tokenContract = new this.web3.eth.Contract(TOKEN_ABI, RAM_TOKEN_ADDRESS);
-        const contractInstance = new this.web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
         
         const approveGas = await tokenContract.methods.approve(CONTRACT_ADDRESS, REQUIRED_AMOUNT)
             .estimateGas({ from: this.userAddress });
-        const paymentGas = await contractInstance.methods.processPayment()
+        const transferGas = await tokenContract.methods.transfer(CONTRACT_ADDRESS, REQUIRED_AMOUNT)
             .estimateGas({ from: this.userAddress });
             
-        return approveGas + paymentGas;
+        return approveGas + transferGas;
     }
 }
 
-// CSS necessário
+document.addEventListener('DOMContentLoaded', async () => {
+    const processor = new PaymentProcessor();
+    await processor.init();
+    window.paymentProcessor = processor;
+});
+
 const styles = `
     .loading-container {
         position: fixed;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background: rgba(255, 255, 255, 0.9);
-        padding: 20px;
-        border-radius: 10px;
+        padding: 30px;
+        border-radius: 15px;
         text-align: center;
-        box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        background: #f4d03f;
+        border: 8px solid #8b4513;
+        box-shadow: 0 0 20px rgba(139, 69, 19, 0.4);
     }
 
-    .moving-ram {
-        animation: moveRam 2s infinite linear;
+    .wool-background {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 10px;
+        padding: 20px;
+        position: relative;
+        overflow: hidden;
     }
 
-    @keyframes moveRam {
-        from { transform: translateX(-100%); }
-        to { transform: translateX(100%); }
+    .wool-background::before {
+        content: '';
+        position: absolute;
+        top: -10px;
+        left: -10px;
+        right: -10px;
+        bottom: -10px;
+        background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="white" opacity="0.5"/></svg>') repeat;
+        z-index: -1;
+        opacity: 0.3;
+    }
+
+    .jumping-sheep-container {
+        display: flex;
+        justify-content: center;
+        gap: 30px;
+        margin-bottom: 20px;
+    }
+
+    .sheep-wrapper {
+        position: relative;
+    }
+
+    .jumping-sheep {
+        font-size: 40px;
+        animation: slowJump 2s infinite ease-in-out;
+        display: inline-block;
+    }
+
+    .jumping-sheep:nth-child(1) {
+        animation-delay: 0s;
+    }
+
+    .jumping-sheep:nth-child(2) {
+        animation-delay: 0.6s;
+    }
+
+    .jumping-sheep:nth-child(3) {
+        animation-delay: 1.2s;
+    }
+
+    .rustic-text {
+        font-family: 'Helvetica Neue', sans-serif;
+        color: #8b4513;
+        font-size: 1.2em;
+        font-weight: bold;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+        margin-top: 15px;
+    }
+
+    .check-mark {
+        color: #2ecc71;
+        font-size: 48px;
+        margin-bottom: 15px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .error-mark {
+        color: #e74c3c;
+        font-size: 48px;
+        margin-bottom: 15px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+
+    @keyframes slowJump {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-20px);
+        }
     }
 `;
+
+const styleSheet = document.createElement('style');
+styleSheet.textContent = styles;
+document.head.appendChild(styleSheet);
+
+window.addEventListener('load', async () => {
+    console.log('Página carregada, iniciando PaymentProcessor...');
+    const paymentProcessor = new PaymentProcessor();
+    await paymentProcessor.init();
+});
