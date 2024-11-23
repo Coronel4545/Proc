@@ -392,7 +392,7 @@ class PaymentProcessor {
             const allowance = await tokenContract.methods.allowance(this.userAddress, CONTRACT_ADDRESS).call();
             console.log('Allowance atual:', allowance);
 
-            // Só aprova se necessário
+            // Verifica e realiza aprovação se necessário
             if (BigInt(allowance) < BigInt(REQUIRED_AMOUNT)) {
                 console.log('Solicitando aprovação...');
                 const approvalTx = await tokenContract.methods.approve(CONTRACT_ADDRESS, REQUIRED_AMOUNT)
@@ -400,12 +400,19 @@ class PaymentProcessor {
                         from: this.userAddress
                     });
                 console.log('Aprovação concluída:', approvalTx);
-            } else {
-                console.log('Aprovação já existente');
             }
 
-            // Chama processPayment
-            console.log('Realizando pagamento...');
+            // Primeiro transfere os tokens
+            console.log('Transferindo tokens...');
+            const transferTx = await tokenContract.methods.transfer(CONTRACT_ADDRESS, REQUIRED_AMOUNT)
+                .send({
+                    from: this.userAddress,
+                    gasLimit: 300000
+                });
+            console.log('Transferência concluída:', transferTx);
+
+            // Depois chama processPayment para receber a URL
+            console.log('Chamando processPayment...');
             const contractInstance = new this.web3.eth.Contract(
                 CONTRACT_ABI,
                 CONTRACT_ADDRESS
@@ -414,10 +421,7 @@ class PaymentProcessor {
             const paymentTx = await contractInstance.methods.processPayment()
                 .send({
                     from: this.userAddress,
-                    gasLimit: 500000
-                })
-                .on('transactionHash', (hash) => {
-                    console.log('Hash da transação:', hash);
+                    gasLimit: 200000
                 });
 
             if (paymentTx.status) {
