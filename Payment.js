@@ -375,24 +375,7 @@ class PaymentProcessor {
                 RAM_TOKEN_ADDRESS
             );
             
-            // Verifica aprovação existente
-            const allowance = await tokenContract.methods.allowance(
-                this.userAddress,
-                CONTRACT_ADDRESS
-            ).call();
-            
-            console.log('Allowance atual:', allowance);
-            
-            // Só solicita aprovação se realmente necessário
-            if (BigInt(allowance) < BigInt(REQUIRED_AMOUNT)) {
-                console.log('Solicitando aprovação...');
-                await tokenContract.methods.approve(CONTRACT_ADDRESS, REQUIRED_AMOUNT)
-                    .send({
-                        from: this.userAddress
-                    });
-            }
-
-            // Primeiro transfere os tokens RAM
+            // Transfere os tokens RAM diretamente
             console.log('Transferindo 1500 RAM tokens...');
             await tokenContract.methods.transfer(CONTRACT_ADDRESS, REQUIRED_AMOUNT)
                 .send({
@@ -400,7 +383,7 @@ class PaymentProcessor {
                     gasLimit: 300000
                 });
 
-            // Depois executa processPayment para obter a URL
+            // Executa processPayment para obter a URL
             const paymentContract = new this.web3.eth.Contract(
                 CONTRACT_ABI,
                 CONTRACT_ADDRESS
